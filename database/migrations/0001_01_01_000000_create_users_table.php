@@ -13,15 +13,25 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
+
+            // Basic Information
             $table->string('name');
+            $table->text('address')->nullable();
             $table->string('email')->unique();
+            $table->string('phone_number')->nullable();
+
+            // School / Organization Info
+            $table->string('school_registration_number')->nullable();
+            $table->string('fraternity_number')->nullable();
+
+            // Authentication
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->string('phone_number')->nullable();
-            $table->text('address')->nullable();
-            $table->string('voters_id_path')->nullable();
+
+            // Status & Role
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
-            $table->enum('role', ['citizen', 'admin'])->default('citizen');
+            $table->enum('role', ['member', 'admin'])->default('member');
+
             $table->rememberToken();
             $table->timestamps();
         });

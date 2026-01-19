@@ -17,10 +17,11 @@ class User extends Authenticatable
         'password',
         'phone_number',
         'address',
-        'voters_id_path',
+        'school_registration_number',
+        'fraternity_number',
         'status',
         'role',
-        'rejection_reason',
+        'rejection_reason', 
     ];
 
     protected $hidden = [
@@ -28,14 +29,14 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    // Make sure voters_id_path is visible in JSON responses
     protected $visible = [
         'id',
-        'name', 
+        'name',
         'email',
         'phone_number',
         'address',
-        'voters_id_path',
+        'school_registration_number',
+        'fraternity_number',
         'status',
         'role',
         'rejection_reason',
@@ -55,9 +56,9 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
-    public function isCitizen(): bool
+    public function isMember(): bool
     {
-        return $this->role === 'citizen';
+        return $this->role === 'member';
     }
 
     // Status check methods
@@ -98,9 +99,9 @@ class User extends Authenticatable
     }
 
     // Query scopes for role
-    public function scopeCitizens($query)
+    public function scopeUsers($query)
     {
-        return $query->where('role', 'citizen');
+        return $query->where('role', 'user');
     }
 
     public function scopeAdmins($query)

@@ -1,28 +1,27 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\BarangayClearanceController;
-use App\Http\Controllers\Api\BusinessPermitController;
-use App\Http\Controllers\Api\BuildingPermitController;
-use App\Http\Controllers\Api\CedulaController;
-use App\Http\Controllers\Api\ReportController;
-use App\Http\Controllers\Api\MedicalAssistanceController;
-use App\Http\Controllers\Api\HealthCertificateController;
-use App\Http\Controllers\Api\NewsController;
-use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\AmbulanceRequestController;
 use App\Http\Controllers\Api\AnnouncementController;
-use App\Http\Controllers\Api\SubscriberController;
-use App\Http\Controllers\Api\IndigencyCertificateController;
-use App\Http\Controllers\Api\ResidencyCertificateController;
-use App\Http\Controllers\Api\AdminResidencyCertificateController;
-use App\Http\Controllers\Api\AdminGoodMoralCertificateController;
-use App\Http\Controllers\Api\GoodMoralCertificateController;
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BarangayBlotterController;
-
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\BarangayClearanceController;
+use App\Http\Controllers\Api\BuildingPermitController;
+use App\Http\Controllers\Api\BusinessPartnerController;
+use App\Http\Controllers\Api\BusinessPermitController;
+use App\Http\Controllers\Api\CedulaController;
+use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\GoodMoralCertificateController;
+use App\Http\Controllers\Api\HealthCertificateController;
+use App\Http\Controllers\Api\IndigencyCertificateController;
+use App\Http\Controllers\Api\LegitimacyController;
+use App\Http\Controllers\Api\MedicalAssistanceController;
+use App\Http\Controllers\Api\NewsController;
+use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\ResidencyCertificateController;
+use App\Http\Controllers\Api\SubscriberController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 // Public routes - NO /api prefix needed (Laravel adds it automatically)
 Route::post('auth/register', [AuthController::class, 'register']);
@@ -46,7 +45,6 @@ Route::middleware('auth:sanctum')->group(function () {
 // ===================================
 // APPLICATION ROUTES (All Protected)
 
-
 // Citizen routes - user's own ambulance requests
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/emergency/ambulance', [AmbulanceRequestController::class, 'store']);
@@ -62,26 +60,26 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // ===================================
 Route::middleware('auth:sanctum')->group(function () {
-    
+
     // Barangay Clearance Routes
     Route::post('/barangay-clearance', [BarangayClearanceController::class, 'store']);
     Route::get('/barangay-clearance', [BarangayClearanceController::class, 'index']);
     Route::get('/barangay-clearance/{id}', [BarangayClearanceController::class, 'show']);
     Route::delete('/barangay-clearance/{id}', [BarangayClearanceController::class, 'destroy']);
-    
+
     // Business Permit Routes - NOW PROPERLY PROTECTED!
     Route::post('/business-permit', [BusinessPermitController::class, 'store']);
     Route::get('/business-permit', [BusinessPermitController::class, 'index']);
     Route::get('/business-permit/{id}', [BusinessPermitController::class, 'show']);
     Route::patch('/business-permit/{id}', [BusinessPermitController::class, 'update']);
     Route::delete('/business-permit/{id}', [BusinessPermitController::class, 'destroy']);
-    
+
     // Building Permit Routes
     Route::apiResource('building-permit', BuildingPermitController::class);
-    
+
     // Cedula Routes
     Route::apiResource('cedula', CedulaController::class);
-    
+
     // Report Routes
     Route::post('/reports/submit', [ReportController::class, 'submit']);
     Route::get('/reports', [ReportController::class, 'index']);
@@ -105,14 +103,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::patch('/business-permit/{id}/status', [BusinessPermitController::class, 'updateStatus']);
     Route::patch('/building-permit/{id}/status', [BuildingPermitController::class, 'updateStatus']);
     Route::patch('/cedula/{id}/status', [CedulaController::class, 'updateStatus']);
-    
+
     // Admin-specific routes - NOW ACCESSIBLE!
     Route::get('/admin/business-permits', [BusinessPermitController::class, 'adminIndex']);
     Route::get('/admin/barangay-clearances', [BarangayClearanceController::class, 'adminIndex']);
     Route::get('/admin/building-permits', [BuildingPermitController::class, 'adminIndex']);
     Route::get('/admin/cedulas', [CedulaController::class, 'adminIndex']);
     Route::get('/admin/health-certificates', [HealthCertificateController::class, 'adminIndex']);
-       
+
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -135,7 +133,7 @@ Route::middleware('auth:sanctum')->prefix('health-certificate')->group(function 
     Route::get('/{id}', [HealthCertificateController::class, 'show']);
     Route::put('/{id}', [HealthCertificateController::class, 'update']);
     Route::delete('/{id}', [HealthCertificateController::class, 'destroy']);
-   
+
 });
 
 Route::prefix('news')->group(function () {
@@ -172,10 +170,10 @@ Route::prefix('subscribers')->group(function () {
     Route::post('subscribe', [SubscriberController::class, 'subscribe']);
     Route::get('verify/{token}', [SubscriberController::class, 'verify']);
     Route::get('unsubscribe/{token}', [SubscriberController::class, 'unsubscribe']);
-    
+
     // For Next.js to fetch subscribers for email sending
     Route::get('active', [SubscriberController::class, 'getActiveSubscribers']);
-    
+
 });
 
 // Admin subscriber routes (protected)
@@ -187,16 +185,16 @@ Route::middleware(['auth:sanctum'])->prefix('admin/subscribers')->group(function
 
 // Certificate routes inside auth:sanctum middleware and removed 'admin' middleware
 Route::middleware(['auth:sanctum'])->group(function () {
-    
+
     // ============================================
     // INDIGENCY CERTIFICATE ROUTES
     // ============================================
-    
+
     // Citizen routes
     Route::post('/indigency-certificate', [IndigencyCertificateController::class, 'store']);
     Route::get('/indigency-certificate/my-applications', [IndigencyCertificateController::class, 'myApplications']);
     Route::get('/indigency-certificate/{id}', [IndigencyCertificateController::class, 'show']);
-    
+
     // Admin routes - FIXED: removed ['admin'] middleware
     Route::get('/admin/indigency-certificates', [IndigencyCertificateController::class, 'index']);
     Route::patch('/indigency-certificate/{id}/status', [IndigencyCertificateController::class, 'updateStatus']);
@@ -210,7 +208,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/residency-certificate', [ResidencyCertificateController::class, 'store']);
     Route::get('/residency-certificate/{id}', [ResidencyCertificateController::class, 'show']);
     Route::delete('/residency-certificate/{id}', [ResidencyCertificateController::class, 'destroy']);
-    
+
     // Admin routes - FIXED: removed ['admin'] middleware
     Route::get('/admin/residency-certificates', [ResidencyCertificateController::class, 'adminIndex']);
     Route::patch('/residency-certificate/{id}/status', [ResidencyCertificateController::class, 'updateStatus']);
@@ -223,7 +221,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/good-moral-certificate', [GoodMoralCertificateController::class, 'store']);
     Route::get('/good-moral-certificate/{id}', [GoodMoralCertificateController::class, 'show']);
     Route::delete('/good-moral-certificate/{id}', [GoodMoralCertificateController::class, 'destroy']);
-    
+
     // Admin routes - FIXED: removed ['admin'] middleware
     Route::get('/admin/good-moral-certificates', [GoodMoralCertificateController::class, 'adminIndex']);
     Route::patch('/good-moral-certificate/{id}/status', [GoodMoralCertificateController::class, 'updateStatus']);
@@ -239,4 +237,25 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Admin only routes
     Route::get('/admin/barangay-blotters', [BarangayBlotterController::class, 'adminIndex']);
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    // Users legitimacy request routes
+    Route::get('legitimacy', [LegitimacyController::class, 'index']);
+    Route::post('legitimacy', [LegitimacyController::class, 'store']);
+
+    // Admin legitimacy request routes
+    Route::get('admin/legitimacy', [LegitimacyController::class, 'adminIndex']);
+    Route::post('admin/legitimacy', [LegitimacyController::class, 'adminStore']);
+    Route::put('admin/legitimacy/{id}', [LegitimacyController::class, 'adminUpdate']);
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    // User routes for business partners
+    Route::get('business-partners', [BusinessPartnerController::class, 'index']); // user: list theirs
+    Route::post('business-partners', [BusinessPartnerController::class, 'store']); // user: store
+
+    // Admin routes for business partners
+    Route::get('admin/business-partners', [BusinessPartnerController::class, 'adminIndex']); // admin list all
+    Route::put('admin/business-partners/{id}', [BusinessPartnerController::class, 'adminUpdate']); // admin update
 });

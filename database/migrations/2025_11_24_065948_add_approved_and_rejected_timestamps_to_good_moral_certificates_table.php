@@ -12,7 +12,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('good_moral_certificates', function (Blueprint $table) {
-            $table->timestamp('approved_at')->nullable()->after('updated_at');
             $table->timestamp('rejected_at')->nullable()->after('approved_at');
         });
     }

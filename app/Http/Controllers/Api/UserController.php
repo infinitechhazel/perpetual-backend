@@ -5,42 +5,55 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
 {
     public function index(Request $request)
     {
         try {
-            $query = User::citizens()->select([
+            $authUser = auth()->user();
+
+            // ✅ Admin-only access
+            if (! $authUser || $authUser->role !== 'admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized',
+                ], 403);
+            }
+
+            $query = User::query()->select([
                 'id',
                 'name',
                 'email',
                 'phone_number',
                 'address',
-                'voters_id_path',
+                'school_registration_number',
+                'fraternity_number',
                 'status',
                 'role',
                 'rejection_reason',
                 'created_at',
                 'updated_at',
-                'email_verified_at'
+                'email_verified_at',
             ]);
 
             // Filter by status
-            if ($request->has('status') && $request->status !== 'all') {
+            if ($request->filled('status') && $request->status !== 'all') {
                 $query->where('status', $request->status);
             }
 
-            // Search by name, email, or phone
-            if ($request->has('search') && !empty($request->search)) {
+            // Search
+            if ($request->filled('search')) {
                 $search = $request->search;
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%")
-                      ->orWhere('phone_number', 'like', "%{$search}%")
-                      ->orWhere('address', 'like', "%{$search}%");
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone_number', 'like', "%{$search}%")
+                        ->orWhere('address', 'like', "%{$search}%")
+                        ->orWhere('school_registration_number', 'like', "%{$search}%")
+                        ->orWhere('fraternity_number', 'like', "%{$search}%");
                 });
             }
 
@@ -49,19 +62,17 @@ class UserController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $users
+                'data' => $users,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Error fetching users', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch users',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -69,45 +80,46 @@ class UserController extends Controller
     public function show($id)
     {
         try {
-            $user = User::citizens()
+            $user = User::users()
                 ->select([
                     'id',
                     'name',
                     'email',
                     'phone_number',
                     'address',
-                    'voters_id_path',
+                    'school_registration_number',
+                    'fraternity_number',
                     'status',
                     'role',
                     'rejection_reason',
                     'created_at',
                     'updated_at',
-                    'email_verified_at'
+                    'email_verified_at',
                 ])
                 ->find($id);
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'User not found'
+                    'message' => 'User not found',
                 ], 404);
             }
 
             return response()->json([
                 'success' => true,
-                'data' => $user
+                'data' => $user,
             ]);
 
         } catch (\Exception $e) {
             Log::error('Error fetching user', [
                 'user_id' => $id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch user',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -123,17 +135,17 @@ class UserController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
-            $user = User::citizens()->find($id);
+            $user = User::users()->find($id);
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'User not found'
+                    'message' => 'User not found',
                 ], 404);
             }
 
@@ -156,37 +168,38 @@ class UserController extends Controller
                 'old_status' => $user->getOriginal('status'),
                 'new_status' => $request->status,
                 'reason' => $request->rejection_reason,
-                'updated_by' => auth()->id()
+                'updated_by' => auth()->id(),
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'User status updated successfully',
-                'data' => $user->fresh()
+                'data' => $user->fresh(),
             ]);
 
         } catch (\Exception $e) {
             Log::error('Error updating user status', [
                 'user_id' => $id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update status: ' . $e->getMessage()
+                'message' => 'Failed to update status',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
-    public function statistics(Request $request)
+    public function statistics()
     {
         try {
             $stats = [
-                'total' => User::citizens()->count(),
-                'pending' => User::citizens()->pending()->count(),
-                'approved' => User::citizens()->approved()->count(),
-                'rejected' => User::citizens()->where('status', 'rejected')->count(),
-                'deactivated' => User::citizens()->deactivated()->count(),
+                'total' => User::users()->count(),
+                'pending' => User::users()->pending()->count(),
+                'approved' => User::users()->approved()->count(),
+                'rejected' => User::users()->where('status', 'rejected')->count(),
+                'deactivated' => User::users()->deactivated()->count(),
             ];
 
             return response()->json([
@@ -196,13 +209,13 @@ class UserController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Error fetching user statistics', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch statistics',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
