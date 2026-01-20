@@ -1,31 +1,28 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\BarangayClearanceController;
-use App\Http\Controllers\Api\BusinessPermitController;
-use App\Http\Controllers\Api\BuildingPermitController;
-use App\Http\Controllers\Api\CedulaController;
-use App\Http\Controllers\Api\ReportController;
-use App\Http\Controllers\Api\MedicalAssistanceController;
-use App\Http\Controllers\Api\HealthCertificateController;
-use App\Http\Controllers\Api\NewsController;
-use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\AmbulanceRequestController;
 use App\Http\Controllers\Api\AnnouncementController;
-use App\Http\Controllers\Api\SubscriberController;
-use App\Http\Controllers\Api\IndigencyCertificateController;
-use App\Http\Controllers\Api\ResidencyCertificateController;
-use App\Http\Controllers\Api\AdminResidencyCertificateController;
-use App\Http\Controllers\Api\AdminGoodMoralCertificateController;
-use App\Http\Controllers\Api\GoodMoralCertificateController;
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BarangayBlotterController;
-use App\Http\Controllers\Api\CommunityController;
-use App\Http\Controllers\Api\GoalsController;
-use App\Http\Controllers\Api\MissionAndVisionController;
-
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\BarangayClearanceController;
+use App\Http\Controllers\Api\BuildingPermitController;
+use App\Http\Controllers\Api\BusinessPartnerController;
+use App\Http\Controllers\Api\BusinessPermitController;
+use App\Http\Controllers\Api\CedulaController;
+use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\GoodMoralCertificateController;
+use App\Http\Controllers\Api\HealthCertificateController;
+use App\Http\Controllers\Api\IndigencyCertificateController;
+use App\Http\Controllers\Api\LegitimacyController;
+use App\Http\Controllers\Api\MedicalAssistanceController;
+use App\Http\Controllers\Api\NewsController;
+use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\ResidencyCertificateController;
+use App\Http\Controllers\Api\SubscriberController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\VlogController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 // Public routes - NO /api prefix needed (Laravel adds it automatically)
 Route::post('auth/register', [AuthController::class, 'register']);
@@ -48,7 +45,6 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 // ===================================
 // APPLICATION ROUTES (All Protected)
-
 
 // Members routes - user's own ambulance requests
 Route::middleware('auth:sanctum')->group(function () {
@@ -89,8 +85,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/reports/submit', [ReportController::class, 'submit']);
     Route::get('/reports', [ReportController::class, 'index']);
     Route::get('/reports/{id}', [ReportController::class, 'show']);
-
-
 });
 Route::post('/contacts', [ContactController::class, 'store']);
 
@@ -248,49 +242,34 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/barangay-blotters', [BarangayBlotterController::class, 'adminIndex']);
 });
 
-Route::middleware('auth:sanctum')->prefix('our-community')->group(function () {
-    Route::get('/', [CommunityController::class, 'index']);
-    Route::post('/', [CommunityController::class, 'store']);
-    Route::put('/', [CommunityController::class, 'update']);
-    Route::delete('/', [CommunityController::class, 'destroy']);
+Route::middleware('auth:sanctum')->group(function () {
+    // member legitimacy request routes
+    Route::get('legitimacy', [LegitimacyController::class, 'index']);
+    Route::post('legitimacy', [LegitimacyController::class, 'store']);
+
+    // Admin legitimacy request routes
+    Route::get('admin/legitimacy', [LegitimacyController::class, 'adminIndex']);
+    Route::post('admin/legitimacy', [LegitimacyController::class, 'adminStore']);
+    Route::put('admin/legitimacy/{id}', [LegitimacyController::class, 'adminUpdate']);
 });
 
+Route::middleware('auth:sanctum')->group(function () {
+    // Member routes for business partners
+    Route::get('business-partners', [BusinessPartnerController::class, 'index']);
+    Route::post('business-partners', [BusinessPartnerController::class, 'store']);
 
-// Protected admin routes - require authentication
-Route::middleware('auth:sanctum')->prefix('goals')->group(function () {
-    Route::get('/show', [GoalsController::class, 'show']);
-    Route::post('/', [GoalsController::class, 'store']);
-    Route::put('/', [GoalsController::class, 'update']);
-    Route::delete('/', [GoalsController::class, 'destroy']);
+    // Admin routes for business partners
+    Route::get('admin/business-partners', [BusinessPartnerController::class, 'adminIndex']);
+    Route::put('admin/business-partners/{id}', [BusinessPartnerController::class, 'adminUpdate']);
 });
 
+Route::middleware(['auth:sanctum'])->group(function () {
+    // public
+    Route::get('vlogs', [VlogController::class, 'index']);
 
-/*
-|--------------------------------------------------------------------------
-| Mission & Vision – PUBLIC
-|--------------------------------------------------------------------------
-| Used by website / public pages
-*/
-Route::get('/mission-and-vision', [MissionAndVisionController::class, 'index']);
-
-/*
-|--------------------------------------------------------------------------
-| Mission & Vision – ADMIN (Protected)
-|--------------------------------------------------------------------------
-| Used by admin dashboard (Next.js proxy)
-*/
-Route::middleware('auth:sanctum')->prefix('mission-and-vision')->group(function () {
-    Route::get('/admin', [MissionAndVisionController::class, 'show']);
-    Route::post('/', [MissionAndVisionController::class, 'store']);
-    Route::put('/', [MissionAndVisionController::class, 'update']);
-    Route::delete('/', [MissionAndVisionController::class, 'destroy']);
-});
-
-
-
-Route::middleware('auth:sanctum')->prefix('objectiven')->group(function () {
-    Route::get('/admin', [MissionAndVisionController::class, 'show']);
-    Route::post('/', [MissionAndVisionController::class, 'store']);
-    Route::put('/', [MissionAndVisionController::class, 'update']);
-    Route::delete('/', [MissionAndVisionController::class, 'destroy']);
+    // admin
+    Route::get('admin/vlogs', [VlogController::class, 'adminIndex']);
+    Route::post('admin/vlogs', [VlogController::class, 'store']);
+    Route::patch('admin/vlogs/{id}', [VlogController::class, 'update']);
+    Route::delete('admin/vlogs/{id}', [VlogController::class, 'destroy']);
 });

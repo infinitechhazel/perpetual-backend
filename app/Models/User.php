@@ -56,9 +56,9 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
-    public function isUser(): bool
+    public function isMember(): bool
     {
-        return $this->role === 'user';
+        return $this->role === 'member';
     }
 
     // Status check methods
