@@ -25,14 +25,16 @@ class LegitimacyController extends Controller
             ], 403);
         }
 
-        $query = LegitimacyRequest::where('user_id', $user->id);
+        $query = LegitimacyRequest::with([
+            'user:id,name,email',
+        ])->where('user_id', $user->id);
 
         // Optional: filter by status
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
 
-        $perPage = $request->get('per_page', 15);
+        $perPage = $request->get('per_page', 10);
         $requests = $query->latest()->paginate($perPage);
 
         return response()->json([
@@ -114,13 +116,17 @@ class LegitimacyController extends Controller
             ], 403);
         }
 
-        $query = LegitimacyRequest::query();
+        $query = LegitimacyRequest::with([
+            'user:id,name,email',   
+            'signatories',          
+        ]);
 
-        // Search and filter
+        // Filter by status
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
 
+        // Search across main fields and signatories
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -128,11 +134,13 @@ class LegitimacyController extends Controller
                     ->orWhere('chapter', 'like', "%{$search}%")
                     ->orWhere('position', 'like', "%{$search}%")
                     ->orWhere('fraternity_number', 'like', "%{$search}%")
-                    ->orWhere('signatory_name', 'like', "%{$search}%");
+                    ->orWhereHas('signatories', function ($sq) use ($search) {
+                        $sq->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
-        $perPage = $request->get('per_page', 15);
+        $perPage = $request->get('per_page', 10);
         $requests = $query->latest()->paginate($perPage);
 
         return response()->json([
@@ -156,14 +164,17 @@ class LegitimacyController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'user_id' => 'required|exists:users,id',
             'alias' => 'required|string|max:255',
             'chapter' => 'required|string|max:255',
             'position' => 'required|string|max:255',
-            'fraternity_number' => 'required|string|max:255|exists:users,fraternity_number',
+            'fraternity_number' => 'required|string|exists:users,fraternity_number',
             'status' => 'sometimes|in:pending,approved,rejected',
             'admin_note' => 'nullable|string|max:500',
-            'signatory_name' => 'sometimes|string|max:255',
+            'certificate_date' => 'required|date',
+            'signatories' => 'nullable|array',
+            'signatories.*.name' => 'required_with:signatories|string|max:255',
+            'signatories.*.signed_date' => 'nullable|date',
+            'signatories.*.signature_file' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
         ]);
 
         if ($validator->fails()) {
@@ -175,35 +186,54 @@ class LegitimacyController extends Controller
         }
 
         try {
+            // Find the user by fraternity number
+            $user = \App\Models\User::where('fraternity_number', $request->fraternity_number)->first();
+            if (! $user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No user found with that fraternity number.',
+                ], 404);
+            }
+
             $legitimacy = LegitimacyRequest::create([
-                'user_id' => $request->user_id,
+                'user_id' => $user->id,
                 'alias' => $request->alias,
                 'chapter' => $request->chapter,
                 'position' => $request->position,
                 'fraternity_number' => $request->fraternity_number,
                 'status' => $request->status ?? 'pending',
                 'admin_note' => $request->admin_note,
-                'signatory_name' => $request->signatory_name,
+                'certificate_date' => $request->certificate_date,
                 'approved_at' => $request->status === 'approved' ? now() : null,
             ]);
 
-            Log::info('Legitimacy request created by admin', [
-                'request_id' => $legitimacy->id,
-                'admin_id' => $admin->id,
-            ]);
+            // Handle signatories
+            if ($request->filled('signatories')) {
+                foreach ($request->signatories as $sig) {
+                    $signatureUrl = null;
+                    if (isset($sig['signature_file'])) {
+                        $file = $sig['signature_file'];
+                        $fileName = time().'_'.$file->getClientOriginalName();
+                        $file->move(public_path('signatureUrl'), $fileName);
+                        $signatureUrl = "/signatureUrl/$fileName";
+                    }
+
+                    $legitimacy->signatories()->create([
+                        'name' => $sig['name'],
+                        'role' => $sig['role'] ?? null,
+                        'signed_date' => $sig['signed_date'] ?? null,
+                        'signature_url' => $signatureUrl,
+                    ]);
+                }
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Legitimacy request created successfully by admin.',
-                'data' => $legitimacy,
+                'data' => $legitimacy->load('signatories'),
             ], 201);
 
         } catch (\Exception $e) {
-            Log::error('Admin legitimacy creation failed', [
-                'admin_id' => $admin->id,
-                'error' => $e->getMessage(),
-            ]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create legitimacy request',
@@ -234,7 +264,6 @@ class LegitimacyController extends Controller
             ], 404);
         }
 
-        // Validation: any field can be updated
         $validator = Validator::make($request->all(), [
             'alias' => 'sometimes|string|max:255',
             'chapter' => 'sometimes|string|max:255',
@@ -242,7 +271,12 @@ class LegitimacyController extends Controller
             'fraternity_number' => 'sometimes|string|max:255',
             'status' => 'sometimes|in:pending,approved,rejected',
             'admin_note' => 'nullable|string|max:500',
-            'signatory_name' => 'nullable|string|max:255',
+            'certificate_date' => 'sometimes|date',
+            'signatories' => 'nullable|array',
+            'signatories.*.id' => 'sometimes|exists:signatories,id',
+            'signatories.*.name' => 'required_with:signatories|string|max:255',
+            'signatories.*.signed_date' => 'nullable|date',
+            'signatories.*.signature_file' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
         ]);
 
         if ($validator->fails()) {
@@ -253,39 +287,107 @@ class LegitimacyController extends Controller
             ], 422);
         }
 
-        // Update only fields provided in request
         $fieldsToUpdate = $request->only([
-            'alias',
-            'chapter',
-            'position',
-            'fraternity_number',
-            'status',
-            'admin_note',
-            'signatory_name',
+            'alias', 'chapter', 'position', 'fraternity_number', 'status', 'admin_note', 'certificate_date',
         ]);
 
         $legitimacy->fill($fieldsToUpdate);
 
-        // Automatically set approved_at if status is 'approved'
         if (isset($fieldsToUpdate['status']) && $fieldsToUpdate['status'] === 'approved') {
             $legitimacy->approved_at = now();
         } elseif (isset($fieldsToUpdate['status']) && $fieldsToUpdate['status'] !== 'approved') {
-            // Clear approved_at if status changes away from approved
             $legitimacy->approved_at = null;
         }
 
         $legitimacy->save();
 
-        Log::info('Legitimacy request updated by admin', [
-            'request_id' => $legitimacy->id,
-            'admin_id' => $admin->id,
-            'fields_updated' => $fieldsToUpdate,
-        ]);
+        // Update or create signatories
+        if ($request->filled('signatories')) {
+            foreach ($request->signatories as $sig) {
+                $signatureUrl = null;
+                if (isset($sig['signature_file'])) {
+                    $file = $sig['signature_file'];
+                    $fileName = time().'_'.$file->getClientOriginalName();
+                    $file->move(public_path('signatureUrl'), $fileName);
+                    $signatureUrl = "/signatureUrl/$fileName";
+                }
+
+                if (! empty($sig['id'])) {
+                    $signatory = $legitimacy->signatories()->find($sig['id']);
+                    if ($signatory) {
+                        $signatory->update([
+                            'name' => $sig['name'],
+                            'role' => $sig['role'] ?? null,
+                            'signed_date' => $sig['signed_date'] ?? null,
+                            'signature_url' => $signatureUrl ?? $signatory->signature_url,
+                        ]);
+                    }
+                } else {
+                    $legitimacy->signatories()->create([
+                        'name' => $sig['name'],
+                        'role' => $sig['role'] ?? null,
+                        'signed_date' => $sig['signed_date'] ?? null,
+                        'signature_url' => $signatureUrl,
+                    ]);
+                }
+            }
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Legitimacy request updated successfully.',
-            'data' => $legitimacy,
+            'data' => $legitimacy->load('signatories'),
         ]);
+    }
+
+    public function adminDestroy($id)
+    {
+        $admin = Auth::user();
+
+        if (! $admin->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only admins can delete legitimacy requests.',
+            ], 403);
+        }
+
+        $legitimacy = LegitimacyRequest::find($id);
+
+        if (! $legitimacy) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Legitimacy request not found.',
+            ], 404);
+        }
+
+        try {
+            // Delete related signatory files first
+            foreach ($legitimacy->signatories as $signatory) {
+                if ($signatory->signature_url) {
+                    $filePath = public_path($signatory->signature_url);
+                    if (file_exists($filePath)) {
+                        @unlink($filePath); // suppress error if file doesn't exist
+                    }
+                }
+            }
+
+            // Delete related signatories
+            $legitimacy->signatories()->delete();
+
+            // Delete the legitimacy request
+            $legitimacy->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Legitimacy request and its signatory files deleted successfully.',
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete legitimacy request.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

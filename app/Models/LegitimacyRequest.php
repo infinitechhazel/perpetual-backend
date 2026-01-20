@@ -10,15 +10,9 @@ class LegitimacyRequest extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
-        'alias',
-        'chapter',
-        'position',
-        'fraternity_number',
-        'status',
-        'admin_note',
-        'signatory_name',
-        'approved_at',
+        'user_id', 'alias', 'chapter', 'position',
+        'fraternity_number', 'status', 'admin_note',
+        'approved_at', 'certificate_date',
     ];
 
     // Optional: cast approved_at to datetime
@@ -26,9 +20,21 @@ class LegitimacyRequest extends Model
         'approved_at' => 'datetime',
     ];
 
+    protected $dates = [
+        'certificate_date',
+        'approved_at',
+        'created_at',
+        'updated_at',
+    ];
+
     // Relationship to User
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function signatories()
+    {
+        return $this->hasMany(Signatory::class);
     }
 }

@@ -11,10 +11,36 @@ use Illuminate\Support\Facades\Validator;
 
 class BusinessPartnerController extends Controller
 {
+    public function index(Request $request)
+    {
+        $query = BusinessPartner::query();
+
+        // Only approved businesses
+        $query->where('status', 'approved');
+
+        // Optional search by name, category, or description
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('business_name', 'like', "%$search%")
+                    ->orWhere('category', 'like', "%$search%")
+                    ->orWhere('description', 'like', "%$search%");
+            });
+        }
+
+        $perPage = $request->get('per_page', 10);
+        $businesses = $query->latest()->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data' => $businesses,
+        ]);
+    }
+
     /**
      * User: List their own businesses
      */
-    public function index(Request $request)
+    public function userIndex(Request $request)
     {
         $user = Auth::user();
         if (! $user->isMember()) {
@@ -27,7 +53,7 @@ class BusinessPartnerController extends Controller
             $query->where('category', $request->category);
         }
 
-        $perPage = $request->get('per_page', 15);
+        $perPage = $request->get('per_page', 10);
         $businesses = $query->latest()->paginate($perPage);
 
         return response()->json(['success' => true, 'data' => $businesses]);
@@ -80,8 +106,8 @@ class BusinessPartnerController extends Controller
                 // Move the file
                 $file->move($destination, $filename);
 
-                // Relative path for frontend / DB
-                $photoPath = 'business_photos/'.$filename;
+                // Relative path for frontend / DB (with leading slash)
+                $photoPath = "/business_photos/$filename";
             }
 
             $business = BusinessPartner::create([
@@ -139,7 +165,7 @@ class BusinessPartnerController extends Controller
             });
         }
 
-        $perPage = $request->get('per_page', 15);
+        $perPage = $request->get('per_page', 10);
         $businesses = $query->latest()->paginate($perPage);
 
         return response()->json(['success' => true, 'data' => $businesses]);
@@ -174,10 +200,23 @@ class BusinessPartnerController extends Controller
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
         }
 
-        if ($request->file('photo')) {
-            $business->photo = $request->file('photo')->store('business_photos', 'public');
-        }
+        // Handle photo upload to public folder
+        if ($request->hasFile('photo')) {
+            $file = $request->file('photo');
+            $filename = time().'_'.$file->getClientOriginalName();
+            $destination = public_path('business_photos');
 
+            if (! file_exists($destination)) {
+                mkdir($destination, 0777, true);
+            }
+
+            $file->move($destination, $filename);
+
+            $business->photo = "/business_photos/$filename";
+        }
+        // If no new photo is uploaded, keep the old photo (do nothing)
+
+        // Fill other fields
         $business->fill($request->only([
             'business_name', 'website_link', 'description', 'category', 'status', 'admin_note',
         ]));
@@ -185,5 +224,31 @@ class BusinessPartnerController extends Controller
         $business->save();
 
         return response()->json(['success' => true, 'message' => 'Business updated', 'data' => $business]);
+    }
+
+    public function adminDestroy($id)
+    {
+        $admin = Auth::user();
+        if (! $admin->isAdmin()) {
+            return response()->json(['success' => false, 'message' => 'Only admins can delete businesses.'], 403);
+        }
+
+        $business = BusinessPartner::find($id);
+        if (! $business) {
+            return response()->json(['success' => false, 'message' => 'Business not found.'], 404);
+        }
+
+        try {
+            // Delete the photo from public folder if it exists
+            if ($business->photo && file_exists(public_path($business->photo))) {
+                unlink(public_path($business->photo));
+            }
+
+            $business->delete();
+
+            return response()->json(['success' => true, 'message' => 'Business deleted successfully.']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Failed to delete business.', 'error' => $e->getMessage()], 500);
+        }
     }
 }
