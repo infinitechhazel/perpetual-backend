@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
 {
@@ -126,69 +125,32 @@ class UserController extends Controller
 
     public function updateStatus(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), [
-            'status' => 'required|string|in:pending,approved,rejected,deactivated',
-            'rejection_reason' => 'required_if:status,rejected,deactivated|string|nullable',
+        $validated = $request->validate([
+            'status' => 'required|in:pending,approved,rejected,deactivated',
+            'rejection_reason' => 'nullable|required_if:status,rejected,deactivated|string',
         ]);
 
-        if ($validator->fails()) {
+        $user = User::find($id);
+
+        if (! $user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
+                'message' => 'User not found',
+            ], 404);
         }
 
-        try {
-            $user = User::users()->find($id);
+        $user->update([
+            'status' => $validated['status'],
+            'rejection_reason' => in_array($validated['status'], ['rejected', 'deactivated'])
+                ? $validated['rejection_reason']
+                : null,
+        ]);
 
-            if (! $user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not found',
-                ], 404);
-            }
-
-            $updateData = [
-                'status' => $request->status,
-            ];
-
-            // If rejected or deactivated, save reason
-            if (in_array($request->status, ['rejected', 'deactivated']) && $request->rejection_reason) {
-                $updateData['rejection_reason'] = $request->rejection_reason;
-            } else {
-                // Clear rejection reason for approved status
-                $updateData['rejection_reason'] = null;
-            }
-
-            $user->update($updateData);
-
-            Log::info('User status updated', [
-                'user_id' => $user->id,
-                'old_status' => $user->getOriginal('status'),
-                'new_status' => $request->status,
-                'reason' => $request->rejection_reason,
-                'updated_by' => auth()->id(),
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'User status updated successfully',
-                'data' => $user->fresh(),
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Error updating user status', [
-                'user_id' => $id,
-                'error' => $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update status',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'message' => 'User status updated successfully',
+            'data' => $user->fresh(),
+        ]);
     }
 
     public function statistics()
