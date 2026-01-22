@@ -254,11 +254,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('admin/legitimacy', [LegitimacyController::class, 'adminStore']);
     Route::put('admin/legitimacy/{id}', [LegitimacyController::class, 'adminUpdate']);
     Route::delete('admin/legitimacy/{id}', [LegitimacyController::class, 'adminDestroy']);
+    Route::get('admin/legitimacy/{id}/pdf', [LegitimacyController::class, 'generatePDF']);
 });
-
 
 // public routes for business partners
 Route::get('business-partners', [BusinessPartnerController::class, 'index']);
+
 Route::middleware('auth:sanctum')->group(function () {
     // Member routes for business partners
     Route::get('user/business-partners', [BusinessPartnerController::class, 'userIndex']);
