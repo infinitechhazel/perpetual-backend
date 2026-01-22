@@ -153,6 +153,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         });
     });
 });
+
 Route::get('/announcements', [AnnouncementController::class, 'index']);
 Route::get('/announcements/{id}', [AnnouncementController::class, 'show']);
 
@@ -256,6 +257,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('admin/legitimacy/{id}', [LegitimacyController::class, 'adminDestroy']);
     Route::get('admin/legitimacy/{id}/pdf', [LegitimacyController::class, 'generatePDF']);
 });
+
 
 // public routes for business partners
 Route::get('business-partners', [BusinessPartnerController::class, 'index']);
