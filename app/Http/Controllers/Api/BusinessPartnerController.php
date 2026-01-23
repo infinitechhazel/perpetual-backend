@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Validator;
 
 class BusinessPartnerController extends Controller
 {
-    // Public: only approved businesses     
+    // Public: only approved businesses
     public function index(Request $request)
     {
         $query = BusinessPartner::query();
@@ -44,14 +44,30 @@ class BusinessPartnerController extends Controller
     public function userIndex(Request $request)
     {
         $user = Auth::user();
-        if (!$user->isMember()) {
+        if (! $user->isMember()) {
             return response()->json(['success' => false, 'message' => 'Only users can view their businesses.'], 403);
         }
 
         $query = BusinessPartner::where('user_id', $user->id);
 
+        // Filter by category if provided
         if ($request->filled('category')) {
             $query->where('category', $request->category);
+        }
+
+        // Filter by status if provided and not "all"
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        // Optional search filter
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('business_name', 'like', "%$search%")
+                    ->orWhere('category', 'like', "%$search%")
+                    ->orWhere('description', 'like', "%$search%");
+            });
         }
 
         $perPage = $request->get('per_page', 10);
@@ -67,7 +83,7 @@ class BusinessPartnerController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isMember()) {
+        if (! $user->isMember()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only users can create businesses.',
@@ -96,11 +112,11 @@ class BusinessPartnerController extends Controller
             // Handle file upload to public folder
             if ($request->hasFile('photo')) {
                 $file = $request->file('photo');
-                $filename = time() . '_' . $file->getClientOriginalName();
+                $filename = time().'_'.$file->getClientOriginalName();
                 $destination = public_path('business_photos');
 
                 // Create folder if it doesn't exist
-                if (!file_exists($destination)) {
+                if (! file_exists($destination)) {
                     mkdir($destination, 0777, true);
                 }
 
@@ -148,7 +164,7 @@ class BusinessPartnerController extends Controller
         try {
             $user = Auth::user();
 
-            if (!$user->isMember()) {
+            if (! $user->isMember()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Only users can update businesses.',
@@ -159,7 +175,7 @@ class BusinessPartnerController extends Controller
                 ->where('user_id', $user->id)
                 ->first();
 
-            if (!$business) {
+            if (! $business) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Business not found or unauthorized.',
@@ -199,10 +215,10 @@ class BusinessPartnerController extends Controller
                 }
 
                 $file = $request->file('photo');
-                $filename = time() . '_' . $file->getClientOriginalName();
+                $filename = time().'_'.$file->getClientOriginalName();
                 $destination = public_path('business_photos');
 
-                if (!file_exists($destination)) {
+                if (! file_exists($destination)) {
                     mkdir($destination, 0777, true);
                 }
 
@@ -246,17 +262,14 @@ class BusinessPartnerController extends Controller
         }
     }
 
-
-
-
     /**
-     * User: delete own business 
+     * User: delete own business
      */
     public function userDestroy($id)
     {
         $user = Auth::user();
 
-        if (!$user->isMember()) {
+        if (! $user->isMember()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only users can delete businesses.',
@@ -267,7 +280,7 @@ class BusinessPartnerController extends Controller
             ->where('user_id', $user->id)
             ->first();
 
-        if (!$business) {
+        if (! $business) {
             return response()->json([
                 'success' => false,
                 'message' => 'Business not found or unauthorized.',
@@ -295,14 +308,13 @@ class BusinessPartnerController extends Controller
         }
     }
 
-
     /**
      * Admin: list all businesses
      */
     public function adminIndex(Request $request)
     {
         $admin = Auth::user();
-        if (!$admin->isAdmin()) {
+        if (! $admin->isAdmin()) {
             return response()->json(['success' => false, 'message' => 'Only admins can view businesses.'], 403);
         }
 
@@ -334,18 +346,18 @@ class BusinessPartnerController extends Controller
     {
         try {
             $admin = Auth::user();
-            if (!$admin->isAdmin()) {
+            if (! $admin->isAdmin()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Only admins can update businesses.'
+                    'message' => 'Only admins can update businesses.',
                 ], 403);
             }
 
             $business = BusinessPartner::find($id);
-            if (!$business) {
+            if (! $business) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Business not found.'
+                    'message' => 'Business not found.',
                 ], 404);
             }
 
@@ -369,7 +381,7 @@ class BusinessPartnerController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -381,10 +393,10 @@ class BusinessPartnerController extends Controller
                 }
 
                 $file = $request->file('photo');
-                $filename = time() . '_' . $file->getClientOriginalName();
+                $filename = time().'_'.$file->getClientOriginalName();
                 $destination = public_path('business_photos');
 
-                if (!file_exists($destination)) {
+                if (! file_exists($destination)) {
                     mkdir($destination, 0777, true);
                 }
 
@@ -413,7 +425,7 @@ class BusinessPartnerController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Business updated successfully.',
-                'data' => $business
+                'data' => $business,
             ]);
 
         } catch (\Throwable $e) {
@@ -432,16 +444,15 @@ class BusinessPartnerController extends Controller
         }
     }
 
-
     public function adminDestroy($id)
     {
         $admin = Auth::user();
-        if (!$admin->isAdmin()) {
+        if (! $admin->isAdmin()) {
             return response()->json(['success' => false, 'message' => 'Only admins can delete businesses.'], 403);
         }
 
         $business = BusinessPartner::find($id);
-        if (!$business) {
+        if (! $business) {
             return response()->json(['success' => false, 'message' => 'Business not found.'], 404);
         }
 
