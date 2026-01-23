@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BusinessPartnerController;
 use App\Http\Controllers\Api\CommunityController;
 use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\GalleryController;
 use App\Http\Controllers\Api\GoalsController;
 use App\Http\Controllers\Api\LegitimacyController;
 use App\Http\Controllers\Api\MissionAndVisionController;
@@ -205,15 +206,21 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Admin list
     Route::get('admin/vlogs', [VlogController::class, 'adminIndex']);
-
     //  CHUNKED UPLOAD (CREATE)
     Route::post('admin/vlogs/chunk-upload', [VlogController::class, 'uploadChunk']);
-
     //  CHUNKED UPLOAD (UPDATE)
     Route::post('admin/vlogs/{vlog}/chunk-upload', [VlogController::class, 'uploadChunk']);
-
     // Normal CRUD (optional fallback)
     Route::post('admin/vlogs', [VlogController::class, 'store']);
     Route::put('admin/vlogs/{vlog}', [VlogController::class, 'update']);
     Route::delete('admin/vlogs/{vlog}', [VlogController::class, 'destroy']);
+});
+
+Route::get('/galleries', [GalleryController::class, 'index']);
+
+Route::middleware('auth:sanctum')->group(function () {
+    // Admin
+    Route::post('admin/galleries', [GalleryController::class, 'store']);
+    Route::put('admin/galleries/{id}', [GalleryController::class, 'update']);
+    Route::delete('admin/galleries/{id}', [GalleryController::class, 'destroy']);
 });
