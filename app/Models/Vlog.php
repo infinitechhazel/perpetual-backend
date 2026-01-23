@@ -17,6 +17,7 @@ class Vlog extends Model
         'content',
         'is_active',
         'video',
+        'poster',
     ];
 
     protected $casts = [
